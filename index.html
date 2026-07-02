@@ -889,8 +889,8 @@
 
 <script>
   // ===== CONFIGURATION =====
-  // Change this email to update where all form submissions are sent
   const CONFIG = {
+    web3formsKey: '4d949ae0-46e4-4f97-b912-83da7ff16424',
     contactEmail: 'info@veyderm.com'
   };
 
@@ -906,42 +906,58 @@
   toggle.addEventListener('click', () => links.classList.toggle('open'));
   links.querySelectorAll('a').forEach(a => a.addEventListener('click', () => links.classList.remove('open')));
 
-  // Form submission via mailto
-  function submitForm() {
+  // Form submission via Web3Forms (sends email to CONFIG.contactEmail)
+  async function submitForm() {
     const name = document.getElementById('ctaName').value.trim();
     const email = document.getElementById('ctaEmail').value.trim();
     const phone = document.getElementById('ctaPhone').value.trim();
     const role = document.getElementById('ctaRole').value;
+    const btn = document.getElementById('ctaSubmit');
 
     if (!name || !email) {
       alert('Please enter your name and email address.');
       return;
     }
 
-    // Basic email validation
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       alert('Please enter a valid email address.');
       return;
     }
 
-    const subject = encodeURIComponent('Veyderm Early Access Request — ' + name);
-    const body = encodeURIComponent(
-      'New Early Access Request\n' +
-      '========================\n\n' +
-      'Name: ' + name + '\n' +
-      'Email: ' + email + '\n' +
-      'Phone: ' + (phone || 'Not provided') + '\n' +
-      'Role: ' + (role || 'Not specified') + '\n\n' +
-      'Submitted from: veyderm.com\n' +
-      'Date: ' + new Date().toLocaleDateString('en-AE', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-    );
+    // Disable button while sending
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
 
-    // Open mailto
-    window.location.href = 'mailto:' + CONFIG.contactEmail + '?subject=' + subject + '&body=' + body;
+    try {
+      const response = await fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          access_key: CONFIG.web3formsKey,
+          subject: 'Veyderm Early Access Request — ' + name,
+          from_name: 'Veyderm Website',
+          name: name,
+          email: email,
+          phone: phone || 'Not provided',
+          role: role || 'Not specified',
+          source: 'veyderm.com',
+          submitted_at: new Date().toLocaleString('en-AE', { dateStyle: 'full', timeStyle: 'short' })
+        })
+      });
 
-    // Show success state
-    document.getElementById('ctaForm').style.display = 'none';
-    document.getElementById('ctaSuccess').classList.add('show');
+      const result = await response.json();
+
+      if (result.success) {
+        document.getElementById('ctaForm').style.display = 'none';
+        document.getElementById('ctaSuccess').classList.add('show');
+      } else {
+        throw new Error(result.message || 'Submission failed');
+      }
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = 'Request Early Access';
+      alert('Something went wrong. Please email us directly at ' + CONFIG.contactEmail);
+    }
   }
 
   // Allow Enter key to submit
